@@ -37,7 +37,7 @@ namespace CVision
         Point next = Point.Empty;
 
         /*Érzékenység és vezérlési mód, egyébb metódusok által használt globális változók */
-        double m_focus = 1500;
+        double m_focus = 100;
         string startMode = string.Empty;
         bool noRecordYet = true;
         bool stillgoing = true;
@@ -92,26 +92,14 @@ namespace CVision
                 /*Két kép közötti differencia számítás*/
                 Image<Bgr, Byte> diff = new Image<Bgr, Byte>(frame1.Width, frame1.Height);
                 CvInvoke.AbsDiff(gray_frame1, gray_frame2, diff);
-
-                /*Laplace és Gauss simítás alkalmazása a differenciált képen*/
-                Image<Gray, Byte> blur_diff = new Image<Gray, Byte>(frame1.Width, frame1.Height);
-                CvInvoke.GaussianBlur(diff, blur_diff, new Size(3, 3), 5);
-                Image<Gray, Byte> laplacian = new Image<Gray, Byte>(frame1.Width, frame1.Height);
-                CvInvoke.Laplacian(blur_diff, laplacian, DepthType.Default,3,2,0,BorderType.Replicate);
-
-                /*CvInvoke.Dilate() kitágítja a képet hogy kitöltse a lyukakat.*/
-                Image<Gray, Byte> dilate = new Image<Gray, Byte>(frame1.Width, frame1.Height);
-                CvInvoke.Dilate(laplacian, dilate, null, new Point(-1, -1), 2, BorderType.Default, new MCvScalar(1, 1, 1));
-
-                /* Küszöbölés*/
-                Image<Gray, Byte> threshold = new Image<Gray, Byte>(frame1.Width, frame1.Height);
-                CvInvoke.AdaptiveThreshold(dilate, threshold, 60, AdaptiveThresholdType.GaussianC, ThresholdType.BinaryInv, 3, 2);
-                
-                /*Kontúrvonalak megkeresése*/
+                Image<Gray, Byte> cannyIMG = new Image<Gray, Byte>(frame1.Width, frame1.Height);
+                CvInvoke.Canny(diff, cannyIMG, 50, 100, 3, false);
                 contours = new VectorOfVectorOfPoint();
                 Mat hier = new Mat();
-                CvInvoke.FindContours(threshold, contours, hier, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
+               // CvInvoke.Dilate(cannyIMG, cannyIMG, null, new Point(-1, -1), 10, BorderType.Default, new MCvScalar(0, 0, 0));
+                CvInvoke.FindContours(cannyIMG, contours, hier, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
 
+             
                 //Kontúrvonalak végigiterálása
                 //Szélsőértékek megkeresése
                 //Határoló négyzetek rajzolása
@@ -136,7 +124,7 @@ namespace CVision
 
                             if (last == Point.Empty)
                             {
-                                Point[] temp = new Point[1] { new Point { X = x, Y = y } };                              
+                                Point[] temp = new Point[1] { new Point { X = x + w / 2, Y = y + h / 2 } };                              
                                 vp.Push(temp);
                                 last = temp[0];
                             }
@@ -147,16 +135,7 @@ namespace CVision
                                 next = temp[0];
                                 drawlineenabled = true;
                             }
-                            if (drawlineenabled)
-                            {
-                                //CvInvoke.Line(frame1, new Point(0,0), new Point(100, 100), new MCvScalar(0, 255, 0));
-                                for (var v = 1; v < vp.Size; v++)
-                                {
-                                    CvInvoke.Line(frame1, vp[v - 1], vp[v], new MCvScalar(0, 255, 0),5);
-                                }
-
-                                last = next;
-                            }
+                            
                             CvInvoke.Rectangle(frame1, new Rectangle(new Point(x, y), new Size(w, h)), new MCvScalar(255, 0, 0), 3, LineType.Filled);
                             if (txtOut.Text != "")
                             {
@@ -173,9 +152,17 @@ namespace CVision
                         MessageBox.Show("Error at draw:" + exp.Message, "ERROR", MessageBoxButtons.OK);
                     }
                 }
+                if (drawlineenabled)
+                {
+                    for (var v = 1; v < vp.Size; v++)
+                    {
+                        CvInvoke.Line(frame1, vp[v - 1], vp[v], new MCvScalar(0, 255, 0), 5);
+                    }
+                    last = next;
+                }
                 if (startMode != string.Empty)
                 {
-                    imgBox.Image = frame1.Rotate(90, new Bgr(0, 0, 0));
+                    imgBox.Image = frame1.Rotate(90, new Bgr(0,0,0));
                 }
                 else
                 {
