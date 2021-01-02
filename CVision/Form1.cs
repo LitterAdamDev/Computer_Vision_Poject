@@ -3,8 +3,8 @@
 ///                                A feladat megvalósításához felhasználtam:                                                    ///
 ///                                EmguCV (cross platform .Net wrapper)                                                         ///
 ///                                ->OpenCV (imagine processing library) funkcióinak hívásához.                                 ///
-///                                A feladat részeként felhasználói valamint fejlesztői dokumentáció                            ///
-///                                is készült.                                                                                  ///
+///                                A feladat részeként teljeskörű dokumentáció is készült.                                      ///
+///                                                                                                                             ///
 /// Author : Litter Ádám                                                                                                        ///
 /// Neptun : FFX181                                                                                                             ///
 /// GitHub : https://github.com/LitterAdamDev/                                                                                  ///
@@ -37,7 +37,7 @@ namespace CVision
         Point next = Point.Empty;
 
         /*Érzékenység és vezérlési mód, egyébb metódusok által használt globális változók */
-        double m_focus = 100;
+        double m_focus = 30;
         string startMode = string.Empty;
         bool noRecordYet = true;
         bool stillgoing = true;
@@ -52,7 +52,6 @@ namespace CVision
         {
             
         }
-
         //ProcessUpdate metódus:
         //  -Képkockák cseréje
         //  -Transzformációk elvégzése 
@@ -82,6 +81,7 @@ namespace CVision
             {
                 /*Pontokat tartalmazó vektorokat tartalmazó vektor a kontúrvonalak pontjainak tárolására*/
                 VectorOfVectorOfPoint contours = null;
+                Image<Bgr, Byte> toShow = frame1;
 
                 /*Szürkeárnyalati konverzió mindkettő képre*/
                 Image<Gray, Byte> gray_frame1 = new Image<Gray, Byte>(frame1.Width, frame1.Height);
@@ -92,36 +92,32 @@ namespace CVision
                 /*Két kép közötti differencia számítás*/
                 Image<Bgr, Byte> diff = new Image<Bgr, Byte>(frame1.Width, frame1.Height);
                 CvInvoke.AbsDiff(gray_frame1, gray_frame2, diff);
+                /*Canny él detektálás (részletes leírás a dokumentációban)*/
                 Image<Gray, Byte> cannyIMG = new Image<Gray, Byte>(frame1.Width, frame1.Height);
                 CvInvoke.Canny(diff, cannyIMG, 50, 100, 3, false);
                 contours = new VectorOfVectorOfPoint();
                 Mat hier = new Mat();
-               // CvInvoke.Dilate(cannyIMG, cannyIMG, null, new Point(-1, -1), 10, BorderType.Default, new MCvScalar(0, 0, 0));
+                //CvInvoke.Dilate(cannyIMG, cannyIMG, null, new Point(-1, -1), 10, BorderType.Default, new MCvScalar(0, 0, 0));
                 CvInvoke.FindContours(cannyIMG, contours, hier, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
 
              
-                //Kontúrvonalak végigiterálása
-                //Szélsőértékek megkeresése
-                //Határoló négyzetek rajzolása
-                //Középpontok keresése
-                //Középpontok összekötése és kiiratása outputra
+                /*Kontúrvonalak végigiterálása                 *
+                 *Szélsőértékek megkeresése                    *
+                 *Határoló négyzetek rajzolása                 *   
+                 *Középpontok keresése                         *
+                 *Középpontok összekötése és kiiratása outputra*/
                 for (int i = 0; i < contours.Size; i++)
                 {
-                    //VectorOfVectorOfPoint contour = new VectorOfVectorOfPoint();
                     try
                     {
                         Rectangle rectangle = CvInvoke.BoundingRectangle(contours[i]);
-                        //contour.Push(contours[i]);
-
-                        double focus = CvInvoke.ContourArea(contours[i], true);
-                        //var focus = CvInvoke.ArcLength(contours[i],true );
+                        double focus = Math.Abs(CvInvoke.ContourArea(contours[i], true));
                         if (focus > m_focus)
                         {
                             int x = rectangle.X;
                             int y = rectangle.Y;
                             int w = rectangle.Width;
                             int h = rectangle.Height;
-
                             if (last == Point.Empty)
                             {
                                 Point[] temp = new Point[1] { new Point { X = x + w / 2, Y = y + h / 2 } };                              
@@ -135,8 +131,7 @@ namespace CVision
                                 next = temp[0];
                                 drawlineenabled = true;
                             }
-                            
-                            CvInvoke.Rectangle(frame1, new Rectangle(new Point(x, y), new Size(w, h)), new MCvScalar(255, 0, 0), 3, LineType.Filled);
+                            CvInvoke.Rectangle(toShow, new Rectangle(new Point(x, y), new Size(w, h)), new MCvScalar(255, 0, 0), 3, LineType.Filled);
                             if (txtOut.Text != "")
                             {
                                 txtOut.AppendText(Environment.NewLine);
@@ -156,18 +151,19 @@ namespace CVision
                 {
                     for (var v = 1; v < vp.Size; v++)
                     {
-                        CvInvoke.Line(frame1, vp[v - 1], vp[v], new MCvScalar(0, 255, 0), 5);
+                        CvInvoke.Line(toShow, vp[v - 1], vp[v], new MCvScalar(0, 255, 0), 5);
                     }
                     last = next;
                 }
                 if (startMode != string.Empty)
                 {
-                    imgBox.Image = frame1.Rotate(90, new Bgr(0,0,0));
+                    imgBox.Image = toShow;
+                    System.Threading.Thread.Sleep(50);
                 }
                 else
                 {
-                    /*Szerkeztett képkocka megjelenítése*/
-                    imgBox.Image = frame1; 
+                    /*Szerkesztett képkocka megjelenítése*/
+                    imgBox.Image = toShow; 
                 }
                 /*Képkockák cseréje*/
                 frame1 = frame2;
@@ -181,7 +177,6 @@ namespace CVision
                 }
                 txtFocus.Text = m_focus.ToString();
             }
-                   
         }
         /*START gomb*/
         private void btnStart_Click(object sender, EventArgs e)
@@ -214,14 +209,14 @@ namespace CVision
         /*UP gomb*/
         private void btnUp_Click(object sender, EventArgs e)
         {
-            m_focus += 25;
+            m_focus += 5;
         }
         /*DOWN gomb*/
         private void btnDown_Click(object sender, EventArgs e)
         {
-            if (m_focus > 0)
+            if (m_focus-5 > 0)
             {
-                m_focus -= 25;
+                m_focus -= 5;
             }
         }
         /*CAMERA  rádiógomb*/
